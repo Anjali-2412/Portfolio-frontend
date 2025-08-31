@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize EmailJS
+    emailjs.init("YOUR_PUBLIC_KEY"); // Replace with your actual EmailJS public key
+
     // Theme Toggle Functionality
     const themeToggle = document.getElementById('theme-toggle');
     const htmlElement = document.documentElement;
@@ -95,8 +98,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle contact form submission
     const contactForm = document.getElementById('contact-form');
+    console.log('Contact form found:', contactForm); // Debug log
+
     if (contactForm) {
         contactForm.addEventListener('submit', handleSubmit);
+        console.log('Submit event listener added'); // Debug log
     }
 
     // Add hover effect to project cards
@@ -115,92 +121,137 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add particle background effect
     createParticleBackground();
+
+    // Mobile Menu Toggle
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    const mobileNavLinks = document.querySelector('.nav-links');
+    const menuIcon = mobileMenuBtn.querySelector('i');
+    let isMenuOpen = false;
+
+    function toggleMenu(show) {
+        isMenuOpen = show;
+        mobileNavLinks.classList.toggle('active', show);
+        mobileMenuBtn.setAttribute('aria-expanded', show);
+        document.body.classList.toggle('menu-open', show);
+        
+        // Toggle menu icon
+        menuIcon.classList.toggle('fa-bars', !show);
+        menuIcon.classList.toggle('fa-times', show);
+
+        // Animate menu items
+        const menuItems = mobileNavLinks.querySelectorAll('li');
+        menuItems.forEach((item, index) => {
+            if (show) {
+                item.style.transitionDelay = `${0.1 * (index + 1)}s`;
+            } else {
+                item.style.transitionDelay = '0s';
+            }
+        });
+    }
+
+    mobileMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMenu(!isMenuOpen);
+    });
+
+    // Close mobile menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (isMenuOpen && !mobileMenuBtn.contains(e.target) && !mobileNavLinks.contains(e.target)) {
+            toggleMenu(false);
+        }
+    });
+
+    // Close mobile menu when clicking on a link
+    mobileNavLinks.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            toggleMenu(false);
+        });
+    });
+
+    // Close mobile menu on resize
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768 && isMenuOpen) {
+            toggleMenu(false);
+        }
+    });
+
+    // Handle scroll position for smooth scrolling
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            
+            if (target) {
+                // Add offset for fixed header
+                const headerOffset = 70;
+                const elementPosition = target.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+
+                // Update active nav link
+                document.querySelectorAll('.nav-links a').forEach(link => {
+                    link.classList.remove('active');
+                });
+                this.classList.add('active');
+            }
+        });
+    });
+
+    // Update active menu item on scroll
+    window.addEventListener('scroll', () => {
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('.nav-links a');
+        
+        let current = '';
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.clientHeight;
+            if (window.scrollY >= sectionTop - 100) {
+                current = section.getAttribute('id');
+            }
+        });
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href').slice(1) === current) {
+                link.classList.add('active');
+            }
+        });
+    });
 });
 
 // Track form submission state
 let isSubmitting = false;
 
 // Contact Form Handler
-async function handleSubmit(event) {
+function handleSubmit(event) {
     event.preventDefault();
     
-    // Prevent double submission
-    if (isSubmitting) {
-        return;
-    }
-    
-    const form = event.target;
-    const submitButton = form.querySelector('button[type="submit"]');
-    const originalButtonText = submitButton.innerHTML;
+    // Get form and message elements
+    const form = document.getElementById('contact-form');
     const formStatus = document.getElementById('form-status');
-
-    try {
-        // Set submitting state
-        isSubmitting = true;
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fas fa-paper-plane"></i> Sending...';
-
-        const response = await fetch('http://localhost:8080/api/contact', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            mode: 'cors',
-            body: JSON.stringify({
-                name: document.getElementById('name').value,
-                email: document.getElementById('email').value,
-                message: document.getElementById('message').value
-            })
-        });
-
-        if (response.ok) {
-            // Show success message
-            formStatus.innerHTML = `
-                <div class="success-message">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>Thank You!</h3>
-                    <p>Your message has been sent successfully.</p>
-                    <p>We'll get back to you within 24-48 hours.</p>
-                </div>
-            `;
-            formStatus.style.display = 'block';
-            form.reset();
-
-            // Reset form after 5 seconds
-            setTimeout(() => {
-                formStatus.style.display = 'none';
-                formStatus.innerHTML = '';
-                submitButton.disabled = false;
-                submitButton.innerHTML = originalButtonText;
-            }, 5000);
-
-        } else {
-            submitButton.classList.add('error');
-            submitButton.innerHTML = '<i class="fas fa-exclamation-circle"></i> Failed to Send';
-            
-            setTimeout(() => {
-                submitButton.classList.remove('error');
-                submitButton.innerHTML = originalButtonText;
-                submitButton.disabled = false;
-            }, 2000);
-        }
-    } catch (error) {
-        console.error('Error sending message:', error);
-        submitButton.classList.add('error');
-        submitButton.innerHTML = '<i class="fas fa-exclamation-circle"></i> Failed to Send';
-        
-        setTimeout(() => {
-            submitButton.classList.remove('error');
-            submitButton.innerHTML = originalButtonText;
-            submitButton.disabled = false;
-        }, 2000);
-    } finally {
-        // Reset submission state
-        setTimeout(() => {
-            isSubmitting = false;
-        }, 2000);
-    }
+    
+    // Show thank you message
+    formStatus.innerHTML = `
+        <div class="success-message">
+            <i class="fas fa-check-circle"></i>
+            <h3>Thank you for reaching out!</h3>
+            <p>We will get back to you soon.</p>
+        </div>
+    `;
+    formStatus.style.display = 'block';
+    
+    // Reset the form
+    form.reset();
+    
+    // Hide message after 5 seconds
+    setTimeout(() => {
+        formStatus.style.display = 'none';
+    }, 5000);
 }
 
 // Particle background effect
